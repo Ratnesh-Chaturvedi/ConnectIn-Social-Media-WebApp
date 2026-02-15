@@ -17,7 +17,7 @@ const userSchema=new mongoose.Schema({
     bio:{type:String,default:"Hello i am using ConnectIn. Let's Connect "},
     cover_photo:{type:String,default:""},
     profile_picture:{type:String,default:""},
-    location:{type:String,defaukt:""},
+    location:{type:String,default:""},
     followers:[{
         type:String,
         ref:"User",
@@ -30,5 +30,5 @@ const userSchema=new mongoose.Schema({
 },{timestamps:true})
 
 
-const  User=mongoose.model("user",userSchema);
+const  User=mongoose.model("User",userSchema);
 export default User;

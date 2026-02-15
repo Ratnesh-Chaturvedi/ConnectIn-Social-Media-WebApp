@@ -49,8 +49,6 @@ const syncUserUpdation=inngest.createFunction(
 
       await User.findByIdAndUpdate(id,updatedData)
         
-    
-
     }   
 )
 
@@ -60,12 +58,8 @@ const syncUserDeletion=inngest.createFunction(
     {event:"clerk/user.deleted"},
     async ({event})=>{
       const {id}=event.data;  
-    
-
-
       await User.findByIdAndDelete(id)
         
-    
 
     }   
 )
