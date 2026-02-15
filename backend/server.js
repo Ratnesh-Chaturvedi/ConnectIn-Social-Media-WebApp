@@ -19,8 +19,8 @@ app.get("/",(req,res)=>{
     res.send("server  hello bol rahah ")
     
 })
+ 
 
-/
 // inngest route
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
