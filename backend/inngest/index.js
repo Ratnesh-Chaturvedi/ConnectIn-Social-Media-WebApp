@@ -24,10 +24,11 @@ const syncUserCreation = inngest.createFunction(
         full_name:first_name+" "+last_name,
         email:email_addresses[0].email_address,
         profile_picture:image_url,
-        username,
+        username
       }
 
-      await User.create(userData)
+      const createdUser =await User.create(userData)
+      console.log("usercreated",createdUser);
 
     }
 )
