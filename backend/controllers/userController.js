@@ -4,7 +4,7 @@ import { ApiError } from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import imagekit from "../config/imageKit.js";
 import Connection from "../models/connection.model.js";
-import { connected } from "process";
+
 
 // controller to get the userData using userID
 const getUserData = async (req, res) => {
