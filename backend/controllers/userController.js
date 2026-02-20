@@ -4,6 +4,8 @@ import { ApiError } from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import imagekit from "../config/imageKit.js";
 import Connection from "../models/connection.model.js";
+import Post from "../models/post.model.js";
+import { inngest } from "../inngest/index.js";
 
 
 // controller to get the userData using userID
@@ -241,12 +243,21 @@ const sendConnectionRequest=async (req,res)=>{
  ]})
  if(!isConnected){
 
-  const connect=await Connection.create({
+  const newConnection=await Connection.create({
     from_user_id:userId,
     to_user_id:id
   })
+
+
+  //send the email when the connection request is send and send again after 24 hours
+   await inngest.send({
+    name:"app/connection-request",
+    data:{connectionId:newConnection._id}
+   }) 
+
+
   
-  return res.status(200).json(new ApiResponse(200,connect,"Connection request send Successfully"))
+  return res.status(200).json(new ApiResponse(200,newConnection,"Connection request send Successfully"))
 
  }
  else if(isConnected && isConnected.status==="accepted" ){
@@ -314,7 +325,26 @@ const acceptConnectionRequest=async (req,res)=>{
 }
 
 
+// get the profile details and the post uploaded by the other user when we click on his profile
+
+const getUserProfile =async (req,res)=>{
+  try {
+    const {userId}=req.auth()
+    const {profileId}=req.body
+
+    const profile=await User.findById(profileId)
+    if(!profile){
+      return res.status(400).json({message:"USer profile not found"})
+    }
+     const posts=await Post.find({user:profileId}).populate('user')
+     return res.status(200).json({message:"Profile and posts fetched",profile,posts})
+
+  } catch (error) {
+    console.log(error)
+    res.status(400).json({message:error.message})
+  }
+}
 
 
 
-export { getUserData, updateUserData, followUser, UnfollowUser, discoverUser ,sendConnectionRequest,acceptConnectionRequest,getAllConnections};
+export { getUserData, updateUserData, followUser, UnfollowUser, discoverUser ,sendConnectionRequest,acceptConnectionRequest,getAllConnections,getUserProfile};
