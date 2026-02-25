@@ -14,10 +14,10 @@ const sseController = async (req, res) => {
   console.log("New client Connected", userId);
 
   //set sse header
-  req.setHeader("Content-Type", "text/event-stream");
-  req.setHeader("Cache-Control", "no-cache");
-  req.setHeader("Connection", "keep-alive");
-  req.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*");
 
   //add the client's response object to the connection object
   connections[userId] = res;
@@ -34,11 +34,15 @@ const sseController = async (req, res) => {
 const sendMessage = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const { to_user_id } = req.body;
-    const media = req.files;
+    const { to_user_id ,text } = req.body;
+    const media = req.file;
     let media_url = "";
 
-    let message_type = media ? "media" : "text";
+    if (!text && !media) {
+   return res.status(400).json({success:false, message:"Message required"});
+}
+
+    const message_type = media ? "media" : "text";
     if (message_type === "media") {
       const fileBuffer = fs.readFileSync(media.path);
       const response = await imagekit.files.upload({
@@ -57,7 +61,7 @@ const sendMessage = async (req, res) => {
       media_url,
     });
 
-    res.status(200).json({ message: message });
+    res.status(200).json({ success:true, message });
 
     //send this message to to_user_id using SSE
 
@@ -72,7 +76,7 @@ const sendMessage = async (req, res) => {
     }
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ success:false,message: error.message });
   }
 };
 
@@ -96,22 +100,22 @@ const getMessage = async (req, res) => {
       { seen: true },
     );
 
-    res.status(200).json({ messages });
+    res.status(200).json({success:true, messages });
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({success:false, message: error.message });
   }
 };
 
 const getUserRecentMessages = async (req, res) => {
   try {
     const {userId}=req.auth()
-    const messages=await Message.find({to_user_id:userId}.populate('from_user_id to_user_id')).sort({createdAt:-1})
-        res.status(200).json({ messages });
+    const messages=await Message.find({to_user_id:userId}).populate('from_user_id to_user_id').sort({createdAt:-1}) 
+        res.status(200).json({success:true, messages });
 
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({success:false, message: error.message });
   }
 };
 

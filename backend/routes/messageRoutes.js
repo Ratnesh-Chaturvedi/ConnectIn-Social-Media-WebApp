@@ -10,7 +10,7 @@ const messageRouter =express.Router()
 
 messageRouter.get("/:userId",sseController)
 messageRouter.post("/send",upload.single('media'),protect,sendMessage)
-messageRouter.get("/get",protect,getMessage)
+messageRouter.post("/get",protect,getMessage)
 
 
 export default messageRouter

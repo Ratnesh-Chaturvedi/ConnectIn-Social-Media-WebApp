@@ -1,14 +1,76 @@
 import React, { useEffect, useRef, useState } from "react";
 import { dummyMessagesData, dummyUserData } from "../assets/assets";
 import { ImageIcon, SendHorizonal } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "react-router";
+import {useAuth} from "@clerk/clerk-react"
+import toast from "react-hot-toast";
+import { addMessages, fetchMessages, resetMessages } from "../features/messages/messageSlice.js";
+import api from "../api/axios.js"
 
 const ChatBox = () => {
-  const messages = dummyMessagesData;
-  const [text, setText] = useState("");
+const  {messages}  = useSelector((state) => state.messages);
+const [text, setText] = useState("");
   const [image, setImage] = useState(null);
-  const [user, setUser] = useState(dummyUserData);
+  const [user, setUser] = useState(null);
   const messageEndRef = useRef();
-  const sendMessages = async () => {};
+
+  const {userId}=useParams()
+  const {getToken}=useAuth()
+  const dispatch=useDispatch()
+
+  const connections=useSelector((state)=>state.connections.connections)
+
+const fetchUserMessages=async ()=>{
+  try {
+    const token=await getToken();
+    dispatch(fetchMessages({token,userId}))
+  } catch (error) {
+    toast.error(error.message)
+  }
+}
+
+
+  const sendMessages = async () => {
+    try {
+      if(!text && !image){
+        toast.error("Add some message or image")
+        return;
+      }
+      const token=await getToken();
+      const formData=new FormData()
+      formData.append("text",text)
+      formData.append("to_user_id",userId)
+      image && formData.append("media",image)
+      const {data}=await api.post("/api/message/send",formData,{headers:{
+        Authorization:`Bearer ${token}`
+      }})
+      if(data.success){
+        // console.log(data.message)
+        setImage(null)
+        setText('')
+        dispatch(addMessages(data.message))
+      }else {
+        throw new Error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.message)
+      console.log(error)
+    }
+  };
+
+useEffect(()=>{
+  fetchUserMessages()
+  return ()=>{dispatch(resetMessages())}
+},[userId])
+
+useEffect(()=>{
+  if(connections.length >0){
+    const user=connections.find(connection=>connection._id===userId)
+    setUser(user)
+  }
+},[connections,userId])
+
 
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -41,7 +103,7 @@ const ChatBox = () => {
                   <div
                     className={`p-2 text-sm max-w-sm bg-white text-slate-700  rounded-lg  shadow ${msg.to_user_id !== user._id ? "rounded-bl-none" : "rounded-br-none"}`}
                   >
-                    {msg.message_type === "image" && (
+                    {msg.message_type === "media" && (
                       <img
                         src={msg.media_url}
                         className="w-full max-w-sm rounded-lg mb-1"

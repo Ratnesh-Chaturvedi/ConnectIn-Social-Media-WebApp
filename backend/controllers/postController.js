@@ -33,7 +33,7 @@ const addPost = async (req, res) => {
       post_type,
     });
 
-    return res.status(201).json({ data: post, message: "Post created" });
+    return res.status(201).json({success:true, post, message: "Post created" });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
@@ -50,8 +50,9 @@ const getFeedPost = async (req, res) => {
     const posts = await Post.find({ user: { $in: userIds } })
       .populate("user")
       .sort({ createdAt: -1 });
-
-    return res.status(200).json({ message: "Post fetched", data: posts });
+  
+    return res.status(200).json({success:true, message: "Post fetched", posts });
+   
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
@@ -70,11 +71,11 @@ const toggleLikePost = async (req, res) => {
     if (post.likes_count.includes(userId)) {
       post.likes_count = post.likes_count.filter((user) => user !== userId);
       await post.save();
-      return res.status(200).json({ message: "Post Unliked" });
+      return res.status(200).json({success:true, message: "Post Unliked" });
     } else {
       post.likes_count.push(userId);
       await post.save();
-      return res.status(200).json({ message: "Post liked" });
+      return res.status(200).json({success:true, message: "Post liked" });
     }
   } catch (error) {
     console.log(error.message);

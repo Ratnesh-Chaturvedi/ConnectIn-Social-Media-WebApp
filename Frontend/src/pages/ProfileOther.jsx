@@ -11,7 +11,7 @@ import  {useAuth} from "@clerk/clerk-react"
 import toast from "react-hot-toast";
 import api from "../api/axios.js"
 
-const Profile = () => {
+const ProfileOther = () => {
 
 
   const currentUser=useSelector((state)=>state.user.value)
@@ -21,7 +21,7 @@ const Profile = () => {
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState("posts");
   const [edit, setEdit] = useState(false);
-  const [toUser,setToUser]=useState(null)
+  const [toProfileData,setToProfileData]=useState(null)  
 
 
   const fetchUser = async (profileId) => {
@@ -31,8 +31,9 @@ const Profile = () => {
       // console.log("data:",data)
       if(data.success){
         // toast.success(data.message)
-        setUser(data.profile);
+        setUser(data.profile)
         setPosts(data.posts);
+        setToProfileData(data)
       }else {
         toast.error(data.message)
       }
@@ -64,14 +65,19 @@ const Profile = () => {
               />
             )}
           </div>
+          <div>
+        
+          </div>
           {/* userinfo */}
           <UserProgfileInfo
             user={user}
             posts={posts}
             profileId={profileId}
             setEdit={setEdit}
+          
           />
-        </div>
+        </div>  
+         
             
         {/* tabs */}
         <div className="mt-6">
@@ -122,4 +128,4 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+export default ProfileOther;

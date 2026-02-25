@@ -1,11 +1,58 @@
 import React from "react";
 import { dummyUserData } from "../assets/assets";
 import { MapPin, MessageCircle, Plus, UserPlus } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
+import {useAuth} from "@clerk/clerk-react"
+import api from "../api/axios.js";
+import toast from "react-hot-toast"
+import { fetchUser } from "../features/users/userSlice.js";
+import {useNavigate} from "react-router-dom"
+
 
 const UserCard = ({ user }) => {
-  const currentUser = dummyUserData;
-  const handleFollow = async () => {};
-  const handleConnectionRequest = async () => {};
+
+  const currentUser = useSelector((state)=>state.user.value);
+  const dispatch=useDispatch()
+  const {getToken}=useAuth()
+  const navigate=useNavigate()
+
+  
+  const handleFollow = async () => {
+    try {
+      const {data}=await api.post("/api/user/follow",{id:user._id},{headers:{
+        Authorization:`Bearer ${await getToken()}`
+      }})
+      if(data.success){
+        toast.success(data.message)
+        dispatch(fetchUser(await getToken()))
+      }
+    } catch (error) {
+      toast.error(error.message)
+    }
+  };
+
+
+
+  const handleConnectionRequest = async () => {
+   if(currentUser.connections.includes(user._id)){
+    return navigate('/messages/'+ user._id);
+   }
+
+    try {
+      const {data}=await api.post("/api/user/connect",{id:user._id},{headers:{
+        Authorization:`Bearer ${await getToken()}`
+      }})
+      // console.log("data",data);
+      if(data.success){
+        toast.success(data.message)
+      }else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.message)
+    }
+
+  };
 
   return (
     <div
@@ -16,7 +63,7 @@ const UserCard = ({ user }) => {
         <img
           src={user.profile_picture}
           alt=""
-          className="rounded-full  w-16  shadow-md  mx-auto"
+          className=" h-16 rounded-full  w-16  shadow-md  mx-auto object-cover"
         />
         <p className="mt-4 font-semibold">{user.full_name}</p>
         {user.username && (
@@ -48,13 +95,13 @@ const UserCard = ({ user }) => {
           className="w-full py-2  rounded-md flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600  active:scale-95 transition text-white cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
-          {currentUser.followers.includes(user._id) ? "Following" : "Follow"}
+          {currentUser.following.includes(user._id) ? "Following" : "Follow"}
         </button>
         {/* connection/message button */}
-    <button className="w-16  group rounded-md  border  flex items-center justify-center gap-2   active:scale-95 transition text-slate-500 cursor-pointer"> 
+    <button onClick={handleConnectionRequest} className="w-16  group rounded-md  border  flex items-center justify-center gap-2   active:scale-95 transition text-slate-500 cursor-pointer"> 
         {currentUser?.connections.includes(user._id)?
         <MessageCircle className="w-5 h-5 group-hover:scale-105 transition"/>:
-        <Plus className="w-5 h-5 group-hover:scale-105 transition"/>    
+        <Plus  className="w-5 h-5 group-hover:scale-105 transition"/>    
     }
     </button>
       </div>

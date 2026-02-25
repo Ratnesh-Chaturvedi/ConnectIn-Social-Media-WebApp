@@ -10,6 +10,6 @@ const storyRouter=express.Router()
 
 
 storyRouter.post("/create",upload.single('media'),protect,addUserStory)
-storyRouter.get("/stories",protect,getStory)
+storyRouter.get("/get",protect,getStory)
 
 export default storyRouter

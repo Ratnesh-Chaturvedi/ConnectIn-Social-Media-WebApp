@@ -2,16 +2,58 @@ import React, { useState } from 'react'
 import { dummyUserData } from '../assets/assets'
 import { Image, ToolCase, X } from 'lucide-react'
 import toast from "react-hot-toast"
+import { useSelector } from 'react-redux'
+import {useAuth} from "@clerk/clerk-react"
+import api from '../api/axios.js'
+import {useNavigate} from "react-router-dom"
 const CreatePost = () => {
 
+  const navigate=useNavigate()
+
+  const {getToken}=useAuth()
   const [content,setContent]=useState('')
   const [images,setImages]=useState([])
   const [loading,setLoading]=useState(false)
 
-  const userData=dummyUserData
+  const userData=useSelector((state)=>state.user.value) 
 
 
-  const handleSubmit =async ()=>{}
+  const handleSubmit =async ()=>{
+  
+    const token=await getToken()
+    if(!images && !content){
+      return toast.error("Please add altleast text or 1 image ")
+    }
+    setLoading(true)
+
+    const postType=images && content ?"text_with_image":images.length?"image":"text"
+
+try {
+  const formData=new FormData()
+  formData.append('content',content)
+  formData.append('post_type',postType)
+  images.map((img)=>{
+   formData.append("images",img) 
+  })
+
+  const {data}=await api.post("/api/post/addpost",formData,{headers:{Authorization:`Bearer ${token}`}})
+
+  if(data.success){
+    toast.success("Post added")
+    navigate("/")
+  }else {
+
+    toast.error(data.message)
+  }
+  
+} catch (error) {
+  toast.error(error.message)
+  throw new Error(error.message)
+}
+
+setLoading(false)
+  
+  }
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-slate-50 to-white'>
@@ -21,6 +63,7 @@ const CreatePost = () => {
           <h1 className="text-3xl font-bold  text-slate-900 mb-2">Create Post</h1>
           <p className="text-slate-600">Share your thoughts with the world</p>
         </div>
+
         {/* form */}
 
         <div className='max-w-xl  bg-white  p-4 sm:p-8  sm:pb-3 rounded-xl shadow-md  space-y-4'>

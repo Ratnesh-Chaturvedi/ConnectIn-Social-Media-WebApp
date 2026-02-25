@@ -5,9 +5,7 @@ const postSchema= new mongoose.Schema({
     content:{type:String},
     image_urls:[{type:String}],
     post_type:{type:String,enum:["text","text_with_image","image"],required:true},
-    likes_count:{type:String,ref:"User"},
-
-
+    likes_count:[{type:String,ref:"User"}],
 },{timestamps:true})
 
 const Post=mongoose.model("Post",postSchema)

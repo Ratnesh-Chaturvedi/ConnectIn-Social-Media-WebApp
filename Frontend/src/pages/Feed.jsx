@@ -4,12 +4,34 @@ import Loading from '../components/Loading'
 import Storybar from '../components/Storybar'
 import Postcard from '../components/Postcard'
 import RecentMessages from '../components/RecentMessages'
+import {useAuth} from "@clerk/clerk-react"
+import toast from 'react-hot-toast'
+import api from '../api/axios.js'
+
+
 
 const Feed = () => {
+  const {getToken}=useAuth()
   const [feeds,setFeeds]=useState([])
   const [loading,setLoading]=useState(true)
   const fetchFeed =async ()=>{
-    setFeeds(dummyPostsData)
+    try {
+      setLoading(true)
+      const token=await getToken()
+      const {data}=await api.get("/api/post/feed",{headers:{
+        Authorization:`Bearer ${token}`
+      }})
+      // console.log(data.posts)
+      if(data.success){
+        setFeeds(data.posts);
+      }
+      else{
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.log(error)
+      // throw new Error(error.message)
+    }
     setLoading(false)
   }
 
@@ -26,7 +48,7 @@ const Feed = () => {
   <Storybar/>
   <div className='p-4 space-y-6'>
     {feeds.map((post,idx)=>(
-      <Postcard key={idx} post={post}    />
+      <Postcard key={idx} post={post}  />
     ))}
   </div>
 </div>

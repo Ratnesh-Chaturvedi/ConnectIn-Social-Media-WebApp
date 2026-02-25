@@ -6,25 +6,24 @@ import imagekit from "../config/imageKit.js";
 import Connection from "../models/connection.model.js";
 import Post from "../models/post.model.js";
 import { inngest } from "../inngest/index.js";
-
+import { error } from "console";
 
 // controller to get the userData using userID
 const getUserData = async (req, res) => {
   try {
     const { userId } = req.auth();
+
     if (!userId) {
-      throw new ApiError(400, "Error while fetching userId");
+      throw new ApiError(401, "Unauthorized: No userId found");
     }
     const userData = await User.findById(userId);
     if (!userData) {
       throw new ApiError(400, "Error User not found");
     }
-    return res
-      .status(200)
-      .json(new ApiResponse(200, userData, "User data fetched successfully"));
+    return res.status(200).json({ success: true, user: userData });
   } catch (error) {
     console.log(error);
-    throw new ApiError(400, error.message);
+    res.status(200).json({ success: false, message: error.message });
   }
 };
 
@@ -104,9 +103,11 @@ const updateUserData = async (req, res) => {
       new: true,
     });
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, updatedUser, "User updated successfully"));
+    return res.status(200).json({
+      success: true,
+      user: updatedUser,
+      message: "Data updated Successfully",
+    });
   } catch (error) {
     console.log(error);
     return res.status(400).json({
@@ -137,10 +138,10 @@ const discoverUser = async (req, res) => {
 
     return res
       .status(200)
-      .json(new ApiResponse(200, filteredUsers, "Fetched all users"));
+      .json({ success: true, message: "Users fetched", filteredUsers });
   } catch (error) {
     console.log(error);
-    throw new ApiError(400, error.message);
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -149,39 +150,33 @@ const discoverUser = async (req, res) => {
 const followUser = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const { id } = req.body(); // id of the user we want to follow
+    const { id } = req.body; // id of the user we want to follow
     // here we should add the user in following list  and in that user followers list
 
-    const currentUser = await User.findById(userId);
+    const  currentUser = await User.findById(userId);
 
     //check that the user already followed it or not
     if (currentUser.following.includes(id)) {
-      return res
-        .status(200)
-        .json(
-          new ApiResponse(
-            200,
-            currentUser,
-            "You are already following this user ",
-          ),
-        );
+      return res.status(200).json({
+        success: true,
+        message: "You are already following this user ",
+      });
     }
 
     currentUser.following.push(id);
     await currentUser.save();
 
-    const followedUser = await User.findById(id);
+    const  followedUser = await User.findById(id);
     followedUser.followers.push(userId);
     await followedUser.save();
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, currentUser, "Now you are Following the user"),
-      );
+    return res.status(200).json({
+      success: true,
+      message: "Now you are following this user",
+    });
   } catch (error) {
     console.log(error);
-    throw new ApiError(400, error.message);
+    res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -190,161 +185,223 @@ const followUser = async (req, res) => {
 const UnfollowUser = async (req, res) => {
   try {
     const { userId } = req.auth();
-    const { id } = req.body(); // id of the user we want to unfollow
+    const { id } = req.body; // id of the user we want to unfollow
     // here we should add the user in following list  and in that user followers list
 
-    const currentUser = await User.findById(userId);
+    let currentUser = await User.findById(userId);
     // remove the id of the followed used
-    currentUser.following = currentUser.following.filter(uid !== id);
+    currentUser.following = currentUser.following.filter(uid=> uid!== id);
     await currentUser.save();
 
     //remove from the followers list of the followed user
-    const followedUser = await User.findById(id);
-    followedUser.followers = followedUser.followers.filter(uid !== userId);
+    let followedUser = await User.findById(id);
+    followedUser.followers = followedUser.followers.filter(uid =>uid !== userId);
     await followedUser.save();
 
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(
-          200,
-          currentUser,
-          "You are no longer following this user",
-        ),
+    return res.status(200).json({
+      success: true,
+      message: "Unfollwed successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+//send Connection request
+const sendConnectionRequest = async (req, res) => {
+  try {
+    // we also send a email to the user that we send a connection request
+
+    const { userId } = req.auth();
+    const { id } = req.body;
+
+    // check if the user send more than 20 connection request in the last 24 hour
+    const last24hour = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const cnnectionRequests = await Connection.find({
+      from_user_id: userId,
+      created_at: { $gt: last24hour },
+    });
+    if (cnnectionRequests.length > 20) {
+      throw new ApiError(
+        400,
+        "You can not send more than 20 Connection request in 24 hours",
       );
+    }
+    // check if user is already connected
+    const isConnected = await Connection.findOne({
+      $or: [
+        { from_user_id: userId, to_user_id: id },
+        { from_user_id: id, to_user_id: userId },
+      ],
+    });
+    if (!isConnected) {
+      const newConnection = await Connection.create({
+        from_user_id: userId,
+        to_user_id: id,
+      });
+
+      //send the email when the connection request is send and send again after 24 hours
+      await inngest.send({
+        name: "app/connection-request",
+        data: { connectionId: newConnection._id },
+      });
+
+      return res
+        .status(200)
+        .json({
+            success:true,
+            newConnection,
+            message:"Connection request send Successfully",
+    });
+    } else if (isConnected && isConnected.status === "accepted") {
+      throw new ApiError(400, "User is already  connected");
+    }
+
+    return res.status(200).json({
+      success: false,
+      message: "Connection request is pending",
+    });
   } catch (error) {
     console.log(error);
     throw new ApiError(400, error.message);
   }
 };
 
+// get all the user connection
 
-//send Connection request 
-const sendConnectionRequest=async (req,res)=>{
+const getAllConnections = async (req, res) => {
   try {
+    const { userId } = req.auth();
+    const user = await User.findById(userId).populate(
+      "connections followers following",
+    );
 
-    // we also send a email to the user that we send a connection request 
-    
-    const {userId}=req.auth()
-    const {id}=req.body
+    const connections = user.connections;
+    const followers = user.followers;
+    const following = user.following;
 
-    // check if the user send more than 20 connection request in the last 24 hour 
- const last24hour=new Date(Date.now()-24*60*60*1000);
- const cnnectionRequests=await Connection.find({from_user_id:userId,
-  created_at:{$gt:last24hour}
- });
- if(cnnectionRequests.length>20){
-    throw new ApiError(400,"You can not send more than 20 Connection request in 24 hours")
- }
- // check if user is already connected
- const isConnected=await Connection.findOne({$or:[
-  {from_user_id:userId,to_user_id:id},
-  {from_user_id:id,to_user_id:userId}
- ]})
- if(!isConnected){
+    const pendingConnection = (
+      await Connection.find({ to_user_id: userId, status: "pending" }).populate(
+        "from_user_id",
+      )
+    ).map((connection) => connection.from_user_id);
 
-  const newConnection=await Connection.create({
-    from_user_id:userId,
-    to_user_id:id
-  })
+    return res.json({
+      success: true,
+      connections,
+      followers,
+      following,
+      pendingConnection,
+      message:"Connection is Pending"
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ success: false, message: error.message });
+  }
+};
 
+//accept the connection request
+const acceptConnectionRequest = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { id } = req.body;
 
-  //send the email when the connection request is send and send again after 24 hours
-   await inngest.send({
-    name:"app/connection-request",
-    data:{connectionId:newConnection._id}
-   }) 
+    const connection = await Connection.findOne({
+      from_user_id: id,
+      to_user_id: userId,
+    });
 
+    if (!connection) {
+      return res.status(400).json({success:false,message:"Connection not found"})
+    }
+    const user = await User.findById(userId);
+    user.connections.push(id);
+    await user.save();
+    const toUser = await User.findById(id);
+    toUser.connections.push(userId);
+    await toUser.save();
 
-  
-  return res.status(200).json(new ApiResponse(200,newConnection,"Connection request send Successfully"))
+    connection.status = "accepted";
+    await connection.save();
 
- }
- else if(isConnected && isConnected.status==="accepted" ){
-  throw new ApiError(400,"User is already  connected")
- }
- 
- return res.json({status:false,message:"Connection request is pending"})
-
-    
+    return res.json({
+      success: true,
+      message: "Connection accepted successfully",
+    });
   } catch (error) {
     console.log(error);
     throw new ApiError(400, error.message);
   }
-}
-
-// get all the user connection 
-
-const getAllConnections=async (req,res)=>{
-  try {
-    const {userId}=req.auth()
-    const user=await User.findById(userId).populate('connections followers following')
-
-    const connections =user.connections
-    const followers =user.followers
-    const following =user.following
-
-    const pendingConnection = (await Connection.find({to_user_id:userId,status:"pending"}).populate("from_user_id")).map(connection=>connection.from_user_id)
-
-    return res.json({status:false,connections,followers,following,pendingConnection})
-
-
-  } catch (error) {
-     console.log(error);
-    throw new ApiError(400, error.message);
-  }
-}
-
-//accept the connection request 
-const acceptConnectionRequest=async (req,res)=>{
-  try {
-    const {userId}=req.auth()
-    const {id}=req.body
-
-    const connection=await Connection.findOne({from_user_id:id,to_user_id:userId});
-
-    if(!connection){
-      throw new ApiError(400,"No connection Found")
-    }
-    const user=await User.findById(userId)
-    user.connections.push(id)
-    await  user.save();
-    const toUser=await User.findById(id)
-    toUser.connections.push(userId)
-    await  toUser.save();
-
-    connection.status="accepted"
-    await connection.save();
-
-
-    return res.json({status:true,message:"Connection accepted successfully"})
-  } catch (error) {
-       console.log(error);
-    throw new ApiError(400, error.message);
-  }
-}
-
+};
 
 // get the profile details and the post uploaded by the other user when we click on his profile
 
-const getUserProfile =async (req,res)=>{
+const getUserProfile = async (req, res) => {
   try {
-    const {userId}=req.auth()
-    const {profileId}=req.body
+    const { userId } = req.auth();
+    const { profileId } = req.body;
 
-    const profile=await User.findById(profileId)
-    if(!profile){
-      return res.status(400).json({message:"USer profile not found"})
+    const profile = await User.findById(profileId);
+    if (!profile) {
+      return res
+        .status(400)
+        .json({ success: false, message: "USer profile not found" });
     }
-     const posts=await Post.find({user:profileId}).populate('user')
-     return res.status(200).json({message:"Profile and posts fetched",profile,posts})
+    const posts = await Post.find({ user: profileId }).populate("user");
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile and posts fetched",
+      profile,
+      posts,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+// remove the connection between 2 user
+
+const removeConnection =async (req,res)=>{
+  try {
+    const {userId}=req.auth();
+    const {uid}=req.params
+
+    const user=await User.findById(userId);
+    if(!user){
+    return res.status(401).json({message:"Not Authenticated"})
+  }
+  const toUser=await User.findById(uid);
+    if(!toUser){
+   return  res.status(404).json({message:"User not found"})
+    }
+    user.connections=user.connections.filter((id)=>id!==uid)
+    await user.save();
+
+     toUser.connections=toUser.connections.filter((id)=>id!==userId)
+    await toUser.save();
+  
+    return res.status(200).json({message:"Connection removed"})
 
   } catch (error) {
-    console.log(error)
-    res.status(400).json({message:error.message})
+    console.log(error);
+    res.status(400).json({ success: false, message: error.message });
   }
 }
 
 
 
-export { getUserData, updateUserData, followUser, UnfollowUser, discoverUser ,sendConnectionRequest,acceptConnectionRequest,getAllConnections,getUserProfile};
+export {
+  getUserData,
+  updateUserData,
+  followUser,
+  UnfollowUser,
+  discoverUser,
+  sendConnectionRequest,
+  acceptConnectionRequest,
+  getAllConnections,
+  getUserProfile,
+  removeConnection
+};

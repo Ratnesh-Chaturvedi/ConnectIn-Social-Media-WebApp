@@ -9,9 +9,9 @@ const addUserStory = async (req, res) => {
     const { userId } = req.auth();
   
     const { content, media_type, background_color } = req.body;
-    const media = req.files;
+    let media = req.file;
     let media_url ='';
-    if (media_type=="image"|| media_type==="video") {
+    if (media_type==="image" || media_type==="video") {
       
           const fileBuffer = fs.readFileSync(media.path);
           const response = await imagekit.files.upload({
@@ -20,8 +20,7 @@ const addUserStory = async (req, res) => {
             folder: `story`,
         })
         media_url=response.url
-      
-
+  
     }
     const story = await Story.create({
       user: userId,
@@ -41,12 +40,12 @@ const addUserStory = async (req, res) => {
 
 
 
-    return res.staus(201).json({message:"Story Created",story})
+    return res.status(201).json({success:true,message:"Story Created",story})
 
 
   } catch (error) {
     console.log(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({success:false, message: error.message });
   }
 };
 
@@ -55,14 +54,13 @@ const getStory =async (req,res)=>{
     try {
     const {userId}=req.auth()
     const user=await User.findById(userId)
-    const userIds=[user,...user.connections,...user.following]
+    const userIds=[user._id,...user.connections,...user.following]
     const stories=await  Story.find({user:{$in:userIds}}).populate('user').sort({createdAt:-1})
-
-
-return res.staus(200).json({message:"Stories fetched",stories})
+   
+return res.status(200).json({success:true,message:"Stories fetched",stories})
     } catch (error) {
          console.log(error);
-    res.status(400).json({ message: error.message });
+    res.status(400).json({success:false, message: error.message });
     }
 }
 

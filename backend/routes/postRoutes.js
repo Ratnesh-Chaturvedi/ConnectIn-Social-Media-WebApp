@@ -7,7 +7,7 @@ import { upload } from "../middlewares/multer.js"
 
 const postRouter=express.Router()
 postRouter.post("/addpost",upload.array("images",4),protect,addPost)
-postRouter.patch("/toggleLike",protect,toggleLikePost)
+postRouter.patch("/togglelike",protect,toggleLikePost)
 postRouter.get("/feed",protect,getFeedPost)
 
 

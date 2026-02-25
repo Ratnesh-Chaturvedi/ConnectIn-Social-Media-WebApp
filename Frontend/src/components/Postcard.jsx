@@ -3,17 +3,42 @@ import { BadgeCheck, Heart, MessageCircle, Share2 } from "lucide-react"
 import moment from "moment"
 import { dummyUserData } from '../assets/assets'
 import { useNavigate } from 'react-router-dom'
-
+import { useSelector } from 'react-redux'
+import { useAuth } from '@clerk/clerk-react'
+import api from '../api/axios.js'
+import toast from "react-hot-toast"
 
 const Postcard = ({post}) => {
+    const {getToken}=useAuth()
     const navigate =useNavigate()
     const postWithHashtag=post.content.replace(/(#\w+)/g, '<span class="text-indigo-500">$1</span>')
     
  const [likes,setLikes]=useState(post.likes_count)
- const currentUser=dummyUserData
+ const currentUser=useSelector((state)=>state.user.value)
  
-const toggleLike = async()=>{
 
+
+
+const toggleLike = async(post)=>{
+   try {
+    const token=await getToken()
+    const {data}=await api.patch("/api/post/togglelike",{postId:post._id},{headers:{Authorization:`Bearer ${token}`}})
+    if(data.success){
+        toast.success(data.message)
+        setLikes((prev)=>{
+            if(prev.includes(currentUser._id)){
+                return prev.filter(id=>id!==currentUser._id)
+            }else {
+                return [...prev,currentUser._id]
+            }
+        })
+    }
+    else {
+        toast.error(data.message)
+    }
+   } catch (error) {
+    console.log(error)
+   }
 }
 
 
@@ -23,7 +48,7 @@ const toggleLike = async()=>{
     <div className='bg-white rounded-xl shadow p-4 space-y-4 w-full max-w-2xl'>
  {/* user info */}
      <div onClick={()=>navigate(`/profile/${post.user._id}`)} className='inline-flex items-center gap-3 cursor-pointer'>
-        <img src={post.user.profile_picture} alt="" className='w-10 h-10 rounded-full shadow' />
+        <img src={post.user.profile_picture} alt="" className='w-10 h-10 rounded-full shadow object-cover' />
         <div>
             <div className='flex items-center space-x-1'>
             <span>{post.user.full_name}</span>
@@ -53,8 +78,8 @@ dangerouslySetInnerHTML={{__html:postWithHashtag}}
 {/* actions-like/share/comments */}
 <div className='flex items-center gap-4 text-gray-600 text-sm  pt-2  border-t border-gray-300'>
 <div className='flex items-center gap-1'>
-<Heart  className={`w-4 h-4 cursor-pointer ${likes.includes(currentUser._id) &&"text-red-500 fill-red-500"}`}  onClick={toggleLike}/> 
-<span>{likes.length +1 }</span>
+<Heart  className={`w-4 h-4 cursor-pointer ${likes.includes(currentUser._id) &&"text-red-500 fill-red-500"}`}  onClick={()=>toggleLike(post)}/> 
+<span>{likes.length}</span>
 </div>
 <div className='flex items-center gap-1'>
   <MessageCircle className='w-4 h-4' /> 

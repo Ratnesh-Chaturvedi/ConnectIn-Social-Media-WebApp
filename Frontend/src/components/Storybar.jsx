@@ -4,12 +4,35 @@ import { Plus } from "lucide-react";
 import moment from "moment";
 import StoryModal from "./StoryModal";
 import Storyviewer from "./Storyviewer";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios.js";
+import toast from "react-hot-toast"
+
 const Storybar = () => {
+  const {getToken}=useAuth()
   const [stories, setStories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [viewStory, setViewStory] = useState(null);
   const fetchStory = async () => {
-    setStories(dummyStoriesData);
+
+    const token=await getToken()
+
+    try {
+      const {data}=await api.get("/api/story/get",{headers:{
+        Authorization:`Bearer ${token}`
+      }})
+      // console.log(data)
+      if(data.success){
+        setStories(data.stories)
+
+      }
+      else {
+        toast.error(data.message)
+      }
+
+    } catch (error) {
+      console.error(error.message)
+    }
   };
   useEffect(() => {
     fetchStory();
@@ -43,7 +66,7 @@ const Storybar = () => {
             <img
               src={story.user.profile_picture}
               alt=""
-              className="absolute size-8  top-3 left-3 z-10 rounded-full ring  ring-gray-100 shadow "
+              className="absolute size-8  top-3 left-3 z-10 rounded-full ring  ring-gray-100 shadow object-cover"
             />
             <p className="absolute top-18  left-3  text-white/60  text-sm truncate max-w-24">
               {story.content}
