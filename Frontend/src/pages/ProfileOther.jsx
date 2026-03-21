@@ -1,6 +1,5 @@
-import React, { act, useEffect, useState } from "react";
+import React, {  useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { dummyPostsData, dummyUserData } from "../assets/assets";
 import Loading from "../components/Loading";
 import UserProgfileInfo from "../components/UserProgfileInfo";
 import Postcard from "../components/Postcard";
@@ -72,9 +71,9 @@ const ProfileOther = () => {
           <UserProgfileInfo
             user={user}
             posts={posts}
-            profileId={profileId}
+            profileId={profileId || ""}
             setEdit={setEdit}
-          
+            currentUser={currentUser}
           />
         </div>  
          

@@ -1,12 +1,12 @@
 import fs from "fs";
 import User from "../models/user.model.js";
 import { ApiError } from "../utils/apiError.js";
-import ApiResponse from "../utils/apiResponse.js";
+
 import imagekit from "../config/imageKit.js";
 import Connection from "../models/connection.model.js";
 import Post from "../models/post.model.js";
 import { inngest } from "../inngest/index.js";
-import { error } from "console";
+
 
 // controller to get the userData using userID
 const getUserData = async (req, res) => {
@@ -215,7 +215,9 @@ const sendConnectionRequest = async (req, res) => {
 
     const { userId } = req.auth();
     const { id } = req.body;
-
+    if(!id){
+      return res.status(404).json({success:false,message:"Pass the ID "})
+    }
     // check if the user send more than 20 connection request in the last 24 hour
     const last24hour = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const cnnectionRequests = await Connection.find({
@@ -223,10 +225,7 @@ const sendConnectionRequest = async (req, res) => {
       created_at: { $gt: last24hour },
     });
     if (cnnectionRequests.length > 20) {
-      throw new ApiError(
-        400,
-        "You can not send more than 20 Connection request in 24 hours",
-      );
+     return res.status(404).json({success:false,message:"You can't send more than 20 request in 24 hours"})
     }
     // check if user is already connected
     const isConnected = await Connection.findOne({
@@ -255,7 +254,7 @@ const sendConnectionRequest = async (req, res) => {
             message:"Connection request send Successfully",
     });
     } else if (isConnected && isConnected.status === "accepted") {
-      throw new ApiError(400, "User is already  connected");
+      return res.status(400).json({success:false,message:"User is already  connected"});
     }
 
     return res.status(200).json({
@@ -264,7 +263,7 @@ const sendConnectionRequest = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    throw new ApiError(400, error.message);
+    res.status(400).json({success:false,message:"Error in connection"})
   }
 };
 
@@ -363,35 +362,130 @@ const getUserProfile = async (req, res) => {
 };
 
 // remove the connection between 2 user
-
-const removeConnection =async (req,res)=>{
+const removeConnection = async (req, res) => {
   try {
-    const {userId}=req.auth();
-    const {uid}=req.params
+    const { userId } = req.auth();
+    const { profileId } = req.params;
 
-    const user=await User.findById(userId);
-    if(!user){
-    return res.status(401).json({message:"Not Authenticated"})
-  }
-  const toUser=await User.findById(uid);
-    if(!toUser){
-   return  res.status(404).json({message:"User not found"})
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not Authenticated",
+      });
     }
-    user.connections=user.connections.filter((id)=>id!==uid)
+
+    const toUser = await User.findById(profileId);
+    if (!toUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+   
+    user.connections = user.connections.filter(
+      (id) => id.toString() !== profileId
+    );
+
+    toUser.connections = toUser.connections.filter(
+      (id) => id.toString() !== userId
+    );
+
     await user.save();
-
-     toUser.connections=toUser.connections.filter((id)=>id!==userId)
     await toUser.save();
-  
-    return res.status(200).json({message:"Connection removed"})
 
+    // ✅ remove from connection collection
+    await Connection.findOneAndDelete({
+      $or: [
+        { from_user_id: userId, to_user_id: profileId },
+        { from_user_id: profileId, to_user_id: userId },
+      ],
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Connection removed",
+    });
   } catch (error) {
     console.log(error);
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+// show random users in the discover page without searching 
+const showRandomUsers=async (req,res)=>{
+  try {
+    const {userId}=req.auth();
+    if(!userId){
+      return res.status(401).json({message:"Not Authenticated"})
+    }
+    const user=await User.findById(userId);
+    // the ids of user which are  in the connection or following list
+    const excludeIds=[userId,...user.connections,user.following]
+    // finding random 10 users
+    const randomUsers = await User.aggregate([
+      { $match: { _id: { $nin: excludeIds } } }, // exclude users
+      { $sample: { size: 10 } }                  // randomly pick 10
+    ]);
+
+    return res.status(200).json({success:true,users:randomUsers})
+  } catch (error) {
+     console.log(error);
     res.status(400).json({ success: false, message: error.message });
   }
 }
 
 
+// toggle the follow and unfollow
+
+const toggleFollow = async (req, res) => {
+  try {
+    const { userId } = req.auth(); // current logged-in user
+    const { profileId } = req.params; // user to follow/unfollow
+
+    if (userId === profileId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Cannot follow yourself" });
+    }
+
+    const user = await User.findById(userId);
+    const profileUser = await User.findById(profileId);
+
+    if (!user || !profileUser) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Check if already following
+    if (user.following.includes(profileId)) {
+      // Remove profile from following list
+      user.following = user.following.filter((id) => id !== profileId);
+
+      // Remove current user from profile's followers
+      profileUser.followers = profileUser.followers.filter((id) => id !== userId);
+    } else {
+      // Add profile to following list
+      user.following.push(profileId);
+
+      // Add current user to profile's followers
+      profileUser.followers.push(userId);
+    }
+
+    // Save both users
+    await user.save();
+    await profileUser.save();
+
+    return res.status(200).json({ success: true, message: "Success" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
 
 export {
   getUserData,
@@ -403,5 +497,7 @@ export {
   acceptConnectionRequest,
   getAllConnections,
   getUserProfile,
-  removeConnection
+  removeConnection,
+  showRandomUsers,
+  toggleFollow
 };

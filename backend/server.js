@@ -12,6 +12,7 @@ import userRouter from "./routes/userRoutes.js";
 import postRouter from "./routes/postRoutes.js";
 import storyRouter from "./routes/storyRoutes.js";
 import messageRouter from "./routes/messageRoutes.js";
+import commentRouter from "./routes/commentRoutes.js";
 
 const app = express();
 app.use(express.json());
@@ -41,7 +42,8 @@ app.use("/api/story", storyRouter);
 // message routes
 app.use("/api/message",messageRouter)
 
-
+// comment routes
+app.use("/api/comment",commentRouter)
 
 
 

@@ -1,74 +1,123 @@
-import React, { useEffect, useState } from 'react'
-import { assets, dummyPostsData } from '../assets/assets'
-import Loading from '../components/Loading'
-import Storybar from '../components/Storybar'
-import Postcard from '../components/Postcard'
-import RecentMessages from '../components/RecentMessages'
-import {useAuth} from "@clerk/clerk-react"
-import toast from 'react-hot-toast'
-import api from '../api/axios.js'
-
-
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { assets } from '../assets/assets';
+import Loading from '../components/Loading';
+import Storybar from '../components/Storybar';
+import Postcard from '../components/Postcard';
+import RecentMessages from '../components/RecentMessages';
+import { useAuth } from "@clerk/clerk-react";
+import toast from 'react-hot-toast';
+import api from '../api/axios.js';
+import { Outlet } from 'react-router-dom'; // Add this
 
 const Feed = () => {
-  const {getToken}=useAuth()
-  const [feeds,setFeeds]=useState([])
-  const [loading,setLoading]=useState(true)
-  const fetchFeed =async ()=>{
+  const { getToken } = useAuth();
+  const [feeds, setFeeds] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [seenPosts, setSeenPosts] = useState([]);
+
+  const observerRef = useRef(null);
+  const isFetching = useRef(false);
+
+  const fetchFeed = useCallback(async () => {
+    if (isFetching.current || !hasMore) return;
+
+    isFetching.current = true;
+    setLoading(true);
+
     try {
-      setLoading(true)
-      const token=await getToken()
-      const {data}=await api.get("/api/post/feed",{headers:{
-        Authorization:`Bearer ${token}`
-      }})
-      // console.log(data.posts)
-      if(data.success){
-        setFeeds(data.posts);
-      }
-      else{
-        toast.error(data.message)
+      const token = await getToken();
+      const { data } = await api.post(
+        "/api/post/feed",
+        { seenPosts },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (data.success) {
+        const incomingPosts = data.posts;
+        if (!incomingPosts || incomingPosts.length === 0) {
+          setHasMore(false);
+        } else {
+          setFeeds(prevFeeds => {
+            const uniqueNewPosts = incomingPosts.filter(
+              newPost => !prevFeeds.some(existing => existing._id === newPost._id)
+            );
+            if (uniqueNewPosts.length === 0) {
+              setHasMore(false);
+              return prevFeeds;
+            }
+            setSeenPosts(prevSeen => [...new Set([...prevSeen, ...uniqueNewPosts.map(p => p._id)])]);
+            return [...prevFeeds, ...uniqueNewPosts];
+          });
+        }
       }
     } catch (error) {
-      console.log(error)
-      // throw new Error(error.message)
+      console.error("Feed Error:", error);
+    } finally {
+      setLoading(false);
+      isFetching.current = false;
     }
-    setLoading(false)
-  }
+  }, [getToken, hasMore, seenPosts]);
 
-  useEffect(()=>{
-    fetchFeed();
-  },[])
+  // FIX: Only fetch on mount if the feed is empty
+  useEffect(() => {
+    if (feeds.length === 0) {
+      fetchFeed();
+    }
+  }, []); // Empty dependency ensures this runs only once on initial mount
 
-  return !loading?(
-    <div className=' w-full h-full overflow-y-scroll  no-scrollbar py-10  xl:pr-5  flex items-start  justify-center xl:gap-8'>
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && !isFetching.current && hasMore) {
+          fetchFeed();
+        }
+      },
+      { threshold: 0.1, rootMargin: "200px" }
+    );
 
-{/* story and post list */}
-<div>
-  {/* Stories Here */}
-  <Storybar/>
-  <div className='p-4 space-y-6'>
-    {feeds.map((post,idx)=>(
-      <Postcard key={idx} post={post}  />
-    ))}
-  </div>
-</div>
+    const currentTarget = observerRef.current;
+    if (currentTarget) observer.observe(currentTarget);
 
-{/* Right sidebar */}
+    return () => {
+      if (currentTarget) observer.unobserve(currentTarget);
+    };
+  }, [fetchFeed, hasMore]);
 
-    <div className='max-xl:hidden sticky top-0'>
-      <div className='max-w-xs bg-white text-xs p-4 rounded-md inline-flex flex-col gap-2 shadow'><h3 className='text-slate-800  font-semibold'>Sponsored  </h3>
-      <img src={assets.sponsored_img} alt="" className='w-75 h-50 rounded-md' />
-       <p className='text-slate-600'>Email Marketing</p> 
-       <p className='text-slate-400'>Lorem ipsum dolor sit amet consectetur, adipisicing elit. Magni, quae?</p>
-      
+  return (
+    <div className='w-full h-full overflow-y-scroll no-scrollbar py-10 xl:pr-5 flex items-start justify-center xl:gap-8'>
+      <div className='w-full max-w-2xl'>
+        <Storybar />
+        <div className='p-4 space-y-6'>
+          {feeds.map((post, idx) => (
+            <div key={post._id} className="animate-fadeInUp" style={{ animationDelay: `${idx * 0.05}s` }}>
+              <Postcard post={post} />
+            </div>
+          ))}
+        </div>
+
+        <div ref={observerRef} className="flex justify-center py-5 min-h-[50px]">
+          {loading && <Loading />}
+          {!hasMore && feeds.length > 0 && (
+            <p className="text-center text-gray-500 py-5">You've reached the end!</p>
+          )}
+        </div>
       </div>
-      
-      {/* <h1>Recent Messages</h1> */}
-      <RecentMessages/>
-    </div>
 
-    </div>
-  ):<Loading/>
-}
+      <div className='max-xl:hidden sticky top-0'>
+        <div className='max-w-xs bg-white text-xs p-4 rounded-md inline-flex flex-col gap-2 shadow'>
+          <h3 className='text-slate-800 font-semibold'>Sponsored</h3>
+          <img src={assets.sponsored_img} alt="Sponsored" className='w-75 h-50 rounded-md' />
+          <p className='text-slate-600 font-bold'>Email Marketing</p>
+          <p className='text-slate-400'>Boost your reach with our premium tools.</p>
+        </div>
+        <RecentMessages />
+      </div>
 
-export default Feed
+      {/* IMPORTANT: This renders the Comment Modal on top of the Feed */}
+      <Outlet />
+    </div>
+  );
+};
+
+export default Feed;

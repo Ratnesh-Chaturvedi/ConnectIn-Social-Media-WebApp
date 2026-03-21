@@ -1,6 +1,6 @@
 import express , {Router } from "express"
 import {upload} from "../middlewares/multer.js"
-import {getUserData, updateUserData,followUser,UnfollowUser,discoverUser,sendConnectionRequest,acceptConnectionRequest,getAllConnections, getUserProfile, removeConnection } from "../controllers/userController.js"
+import {getUserData, updateUserData,followUser,UnfollowUser,discoverUser,sendConnectionRequest,acceptConnectionRequest,getAllConnections, getUserProfile, removeConnection,showRandomUsers, toggleFollow } from "../controllers/userController.js"
 
 import { protect } from "../middlewares/auth.js"
 import { getUserRecentMessages } from "../controllers/messageController.js"
@@ -22,7 +22,9 @@ userRouter.post("/connect",protect,sendConnectionRequest)
 userRouter.post("/accept",protect,acceptConnectionRequest)
 userRouter.get("/connections",protect,getAllConnections)
 userRouter.post("/profile",getUserProfile)
-// userRouter.patch("/disconnect",protect,removeConnection)
+userRouter.patch("/disconnect/:profileId",protect,removeConnection)
+userRouter.get("/random",protect,showRandomUsers)
+userRouter.patch("/togglefollow/:profileId",protect,toggleFollow)
 
 
 // this is the message controller function  that we are written in this for recent message 

@@ -18,6 +18,7 @@ import { fetchConnections } from "./features/connections/connectionSlice.js";
 import { addMessages } from "./features/messages/messageSlice.js";
 import Notification from "./components/Notification.jsx";
 import ProfileOther from "./pages/ProfileOther.jsx";
+import { CommentPage } from "./pages/CommentPage.jsx";
 
 const App = () => {
   const { user } = useUser();
@@ -34,6 +35,7 @@ const App = () => {
     const fetchData = async () => {
       if (user) {
         const token = await getToken();
+        // console.log(token)
         dispatch(fetchUser(token));
         dispatch(fetchConnections(token));
       }
@@ -73,7 +75,9 @@ const App = () => {
       <Toaster />
       <Routes>
         <Route path="/" element={!user ? <Login /> : <Layout />}>
-          <Route index element={<Feed />} />
+          <Route path="/" element={<Feed />}>
+             <Route path="post/:postId/comments" element={<CommentPage />} />
+          </Route>
           <Route path="messages" element={<Messages />} />
           <Route path="messages/:userId" element={<ChatBox />} />
           <Route path="connections" element={<Connection />} />
@@ -81,6 +85,9 @@ const App = () => {
           <Route path="discover" element={<Discover />} />
           <Route path="profile/:profileId" element={<ProfileOther />} />
           <Route path="create-post" element={<CreatePost />} />
+        <Route path="/post/:postId/comments" element={<CommentPage />} />
+
+
         </Route>
       </Routes>
     </>

@@ -19,6 +19,7 @@ const sseController = async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("Access-Control-Allow-Origin", "*");
 
+   res.flushHeaders(); 
   //add the client's response object to the connection object
   connections[userId] = res;
   //send and initial event to the client
@@ -80,6 +81,45 @@ const sendMessage = async (req, res) => {
   }
 };
 
+// Delete message 
+
+
+const deleteMessage =async (req,res)=>{
+try {
+    const { messageId } = req.body;
+    const { userId } = req.auth(); // Current user ID
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+
+    // Only the sender can delete their message
+    if (message.from_user_id !== userId) {
+      return res.status(403).json({ success: false, message: "Unauthorized to delete this message" });
+    }
+
+    const to_user_id = message.to_user_id;
+    await Message.findByIdAndDelete(messageId);
+
+    // Notify the recipient via SSE that a message was deleted
+    if (connections[to_user_id]) {
+      connections[to_user_id].write(
+        `data: ${JSON.stringify({ action: "delete", messageId })}\n\n`
+      );
+    }
+
+    res.status(200).json({ success: true, message: "Message deleted successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({ success: false, message: error.message });
+  }
+}
+
+
+
+
 //get chat messages
 
 const getMessage = async (req, res) => {
@@ -120,8 +160,11 @@ const getUserRecentMessages = async (req, res) => {
 };
 
 
+
+
 export {
     getUserRecentMessages,
     getMessage,
-    sendMessage,sseController
+    sendMessage,sseController,
+    deleteMessage
 }

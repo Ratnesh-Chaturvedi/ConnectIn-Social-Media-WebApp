@@ -39,17 +39,18 @@ const UserCard = ({ user }) => {
    }
 
     try {
+      const token=await getToken()
       const {data}=await api.post("/api/user/connect",{id:user._id},{headers:{
-        Authorization:`Bearer ${await getToken()}`
+        Authorization:`Bearer ${token}`
       }})
-      // console.log("data",data);
+      console.log("data",data);
       if(data.success){
         toast.success(data.message)
       }else {
         toast.error(data.message)
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error( error.response?.data?.message || error.message)
     }
 
   };
@@ -58,8 +59,9 @@ const UserCard = ({ user }) => {
     <div
       key={user._id}
       className=" p-4 pt-6 flex flex-col justify-between w-72  shadow  border border-gray-200 rounded-md"
+      
     >
-      <div className="text-center">
+      <div className="text-center" onClick={()=>navigate(`/profile/${user._id}`)}>
         <img
           src={user.profile_picture}
           alt=""

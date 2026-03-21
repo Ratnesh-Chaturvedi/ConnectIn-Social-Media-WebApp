@@ -21,7 +21,7 @@ const Profile = () => {
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState("posts");
   const [edit, setEdit] = useState(false);
-  const [toUser,setToUser]=useState(null)
+
 
 
   const fetchUser = async (profileId) => {
@@ -90,7 +90,7 @@ const Profile = () => {
           {/* posts */}
            {activeTab==="posts" && (
             <div className="mt-6 flex  flex-col items-center gap-6">
-              {posts.map((post)=><Postcard key={post._id} post={post}/>)}
+              {posts.map((post)=><Postcard key={post._id} post={post} setPosts={setPosts}/>)}
             </div>
            )}
 
