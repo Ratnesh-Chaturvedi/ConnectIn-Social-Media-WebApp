@@ -54,9 +54,7 @@ const handleShare = () => {
       console.error(err);
     });
 };
- useEffect(()=>{
 
- },[currentUser])
 
 const deletePost =async (postId)=>{
   if (!window.confirm("Are you sure you want to delete this post?")) return;
