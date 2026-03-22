@@ -142,7 +142,7 @@ dangerouslySetInnerHTML={{__html:postWithHashtag}}
   </div>
   <div className='flex items-center gap-1 cursor-pointer'>
     <MessageCircle className='w-4 h-4' onClick={()=>navigate(`/post/${post._id}/comments`)}/> 
-    <span>{post.comments.length}</span>
+  
   </div>
   <div className='flex items-center gap-1 cursor-pointer' onClick={handleShare}>
     <Share2 className='w-4 h-4' /> 

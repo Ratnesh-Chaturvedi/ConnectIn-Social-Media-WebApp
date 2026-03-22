@@ -104,7 +104,7 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
       const in24hours=new Date(Date.now()+24*60*60*1000)
       await step.sleepUntil("wait-for-24-hours",in24hours)
       await step.run('send-connection-request-reminder',async ()=>{
-        const connection=await Connection.findById(connecionId).populate("from_user_id to_user_id")
+        const connection=await Connection.findById(connectionId).populate("from_user_id to_user_id")
         if(connection.status==="accepted"){
           return {message:"Already Accepted"}
         }
@@ -149,40 +149,57 @@ const deleteStoryAfter24Hour=inngest.createFunction(
 
 // send notification for unseen messages
 
-const sendNotificationOfUnseenMessage=inngest.createFunction(
-{id:"send-unseen-messages-notification"},
-{cron:"TZ=America/New_York 0 9 * * *"}, //every day 9 AM
-async({step})=>{
-  const messages=await Message.find({seen:false}).populate("to_user_id");
-  const unseenCount ={}
-  
-  messages.map(message=>{
-    unseenCount[message.to_user_id._id]=(unseenCount[message.to_user_id._id] || 0)+1
-  })
+const sendNotificationOfUnseenMessage = inngest.createFunction(
+  { id: "send-unseen-messages-notification" },
+  { cron: "TZ=America/New_York 0 9 * * *" }, // every day 9 AM
+  async ({ step }) => {
+    // 1. Get all unseen messages and group them
+    const data = await step.run("fetch-unseen-messages", async () => {
+      const messages = await Message.find({ seen: false }).select("to_user_id");
+      const unseenCountMap = {};
 
-  for(const userId in unseenCount){
-    const user=await User.findById(userId)
+      messages.forEach((msg) => {
+        const userId = msg.to_user_id.toString();
+        unseenCountMap[userId] = (unseenCountMap[userId] || 0) + 1;
+      });
 
-    const subject=`You have ${unseenCount[userId]} unseen Message`
-    const body=`<div style="font-family:Arial,sens-serif ; padding:20px;">
-      <h2>Hi ${connection.to_user_id.full_name},</h2>
-      <p>You have a  ${unseenCount[userId]} unseen message</p>
-      <p>Click <a href="${process.env.FRONTEND_URL}/connections" style="color:#10b981 ;">here</a> to view them  </p>
-      <br/>
-      <p>Thanks,<br/> ConnectIn - Stay Connected </p>
-      </div>
-      `;
-      await sendEmail({
-        to:user.email,
-        subject,
-        body
-      })
+      return unseenCountMap;
+    });
+
+    const userIds = Object.keys(data);
+    if (userIds.length === 0) return { message: "No unseen messages found" };
+
+    // 2. Loop through users and send emails
+    for (const userId of userIds) {
+      await step.run(`send-email-to-${userId}`, async () => {
+        const user = await User.findById(userId);
+        if (!user) return;
+
+        const count = data[userId];
+        const subject = `You have ${count} unseen ${count === 1 ? 'message' : 'messages'}`;
+        
+        // FIXED: Removed 'connection' and used 'user' variable correctly
+        const body = `
+          <div style="font-family:Arial, sans-serif; padding:20px;">
+            <h2>Hi ${user.full_name},</h2>
+            <p>You have <b>${count}</b> unseen message${count === 1 ? '' : 's'} waiting for you.</p>
+            <p>Click <a href="${process.env.FRONTEND_URL}/messages" style="color:#10b981;">here</a> to view them.</p>
+            <br/>
+            <p>Thanks,<br/> ConnectIn - Stay Connected </p>
+          </div>
+        `;
+
+        await sendEmail({
+          to: user.email,
+          subject,
+          body,
+        });
+      });
+    }
+
+    return { message: `Notifications sent to ${userIds.length} users` };
   }
-  return {message:"Notification Send"}
-
-} 
-
-)
+);
 
 
 

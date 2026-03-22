@@ -121,7 +121,7 @@ const StoryModal = ({ setShowModal, fetchStory }) => {
           {mode === "text" && (
             <textarea
               className=" bg-transparent text-black  w-full h-full p-6 text-lg resize-none focus:outline-none"
-              placeholder="Babu kya hai tumare maan mai ?  "
+              placeholder="Kya hai apke mann mai ?  "
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
